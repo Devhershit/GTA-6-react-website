@@ -1,60 +1,92 @@
-import React, { useState } from "react";
-import { useGSAP } from "@gsap/react";
+
+// App.jsx
+// Main React component for the landing page. Uses GSAP for entrance
+// and interactive animations. This file intentionally manipulates
+// a few DOM elements for animation purposes, so we add null checks
+// and cleanup to avoid runtime errors.
+import React, { useState, useEffect } from "react";
 import gsap from "gsap";
 import "remixicon/fonts/remixicon.css";
 
 function App() {
-  let [showContent, setShowContent] = useState(false);
-  useGSAP(() => {
+  const [showContent, setShowContent] = useState(false);
+
+  useEffect(() => {
+    // Initial intro animation (mask).
+    // We create a GSAP timeline that first rotates the mask text
+    // then scales it up while fading it out. When the animation is
+    // nearly complete (progress >= 0.9) we remove the SVG intro from
+    // the DOM and reveal the main content by setting `showContent`.
     const tl = gsap.timeline();
 
     tl.to(".vi-mask-group", {
       rotate: 10,
       duration: 2,
-      ease: "Power4.easeInOut",
+      // `power4.inOut` -> smooth easing; GSAP accepts lowercase variants
+      ease: "power4.inOut",
       transformOrigin: "50% 50%",
-    }).to(".vi-mask-group", {
-      scale: 10,
-      duration: 2,
-      delay: -1.8,
-      ease: "Expo.easeInOut",
-      transformOrigin: "50% 50%",
-      opacity: 0,
-      onUpdate: function () {
-        if (this.progress() >= 0.9) {
-          document.querySelector(".svg").remove();
-          setShowContent(true);
-          this.kill();
-        }
+    }).to(
+      ".vi-mask-group",
+      {
+        // scale up and fade
+        scale: 10,
+        duration: 2,
+        delay: -1.8,
+        ease: "expo.inOut",
+        transformOrigin: "50% 50%",
+        opacity: 0,
+        onUpdate: function () {
+          // Guard: ensure `progress` exists and is callable
+          if (typeof this.progress === "function" && this.progress() >= 0.9) {
+            // Remove the intro SVG only if it still exists
+            const svgEl = document.querySelector(".svg");
+            if (svgEl && svgEl.parentNode) svgEl.parentNode.removeChild(svgEl);
+            // Reveal the page content
+            setShowContent(true);
+            // Stop the timeline once we've finished the job
+            this.kill();
+          }
+        },
       },
-    });
-  });
+    );
 
-  useGSAP(() => {
+    // Cleanup: always kill the timeline when component unmounts
+    return () => {
+      try {
+        tl.kill();
+      } catch (e) {
+        // ignore errors during cleanup
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    // If the intro hasn't finished, don't run the entrance animations
     if (!showContent) return;
 
+    // Entrance animations for page layers (main, sky, bg, character, text)
     gsap.to(".main", {
       scale: 1,
       rotate: 0,
       duration: 2,
-      delay: "-1",
-      ease: "Expo.easeInOut",
+      delay: -1,
+      ease: "expo.inOut",
     });
 
     gsap.to(".sky", {
       scale: 1.1,
       rotate: 0,
       duration: 2,
-      delay: "-.8",
-      ease: "Expo.easeInOut",
+      delay: -0.8,
+      ease: "expo.inOut",
     });
 
     gsap.to(".bg", {
       scale: 1.1,
       rotate: 0,
       duration: 2,
-      delay: "-.8",
-      ease: "Expo.easeInOut",
+      delay: -0.8,
+      ease: "expo.inOut",
     });
 
     gsap.to(".character", {
@@ -63,21 +95,22 @@ function App() {
       bottom: "-25%",
       rotate: 0,
       duration: 2,
-      delay: "-.8",
-      ease: "Expo.easeInOut",
+      delay: -0.8,
+      ease: "expo.inOut",
     });
 
     gsap.to(".text", {
       scale: 1,
       rotate: 0,
       duration: 2,
-      delay: "-.8",
-      ease: "Expo.easeInOut",
+      delay: -0.8,
+      ease: "expo.inOut",
     });
 
+    // Parallax-like mouse movement: adjust positions based on cursor
     const main = document.querySelector(".main");
-
-    main?.addEventListener("mousemove", function (e) {
+    const mouseHandler = function (e) {
+      // Convert cursor X to a -20..20-ish range then apply to layers
       const xMove = (e.clientX / window.innerWidth - 0.5) * 40;
       gsap.to(".main .text", {
         x: `${xMove * 0.4}%`,
@@ -88,7 +121,16 @@ function App() {
       gsap.to(".bg", {
         x: xMove * 1.7,
       });
-    });
+    };
+
+    // Attach listener if the main element exists. Use optional chaining to
+    // avoid errors in environments without a browser DOM.
+    main?.addEventListener("mousemove", mouseHandler);
+
+    // Cleanup the listener when showContent changes or component unmounts
+    return () => {
+      main?.removeEventListener("mousemove", mouseHandler);
+    };
   }, [showContent]);
 
   return (
@@ -132,9 +174,7 @@ function App() {
                   <div className="line w-8 h-2 bg-white"></div>
                   <div className="line w-5 h-2 bg-white"></div>
                 </div>
-                <h3 className="text-4xl -mt-[8px] leading-none text-white">
-                  Rockstar
-                </h3>
+                <h3 className="text-4xl -mt-[8px] leading-none text-white">Rockstar</h3>
               </div>
             </div>
 
@@ -163,9 +203,7 @@ function App() {
             <div className="btmbar text-white absolute bottom-0 left-0 w-full py-15 px-10 bg-gradient-to-t from-black to-transparent">
               <div className="flex gap-4 items-center">
                 <i className="text-4xl ri-arrow-down-line"></i>
-                <h3 className="text-xl font-[Helvetica_Now_Display]">
-                  Scroll Down
-                </h3>
+                <h3 className="text-xl font-[Helvetica_Now_Display]">Scroll Down</h3>
               </div>
               <img
                 className="absolute h-[55px] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
@@ -187,28 +225,15 @@ function App() {
                 <h1 className="text-8xl">Still Running,</h1>
                 <h1 className="text-8xl">Not Hunting</h1>
                 <p className="mt-10 text-xl font-[Helvetica_Now_Display]">
-                  Lorem ipsum, dolor sit amet consectetur adipisicing elit.
-                  Distinctio possimus, asperiores nam, omnis inventore nesciunt
-                  a architecto eveniet saepe, ducimus necessitatibus at
-                  voluptate.
+                  Lorem ipsum, dolor sit amet consectetur adipisicing elit. Distinctio possimus, asperiores nam, omnis inventore nesciunt a architecto eveniet saepe, ducimus necessitatibus at voluptate.
                 </p>
                 <p className="mt-3 text-xl font-[Helvetica_Now_Display]">
-                  Lorem ipsum dolor sit amet consectetur adipisicing elit. At
-                  eius illum fugit eligendi nesciunt quia similique velit
-                  excepturi soluta tenetur illo repellat consectetur laborum
-                  eveniet eaque, dicta, hic quisquam? Ex cupiditate ipsa nostrum
-                  autem sapiente.
+                  Lorem ipsum dolor sit amet consectetur adipisicing elit. At eius illum fugit eligendi nesciunt quia similique velit excepturi soluta tenetur illo repellat consectetur laborum eveniet eaque, dicta, hic quisquam? Ex cupiditate ipsa nostrum autem sapiente.
                 </p>
                 <p className="mt-10 text-xl font-[Helvetica_Now_Display]">
-                  Lorem ipsum dolor sit amet consectetur adipisicing elit. At
-                  eius illum fugit eligendi nesciunt quia similique velit
-                  excepturi soluta tenetur illo repellat consectetur laborum
-                  eveniet eaque, dicta, hic quisquam? Ex cupiditate ipsa nostrum
-                  autem sapiente.
+                  Lorem ipsum dolor sit amet consectetur adipisicing elit. At eius illum fugit eligendi nesciunt quia similique velit excepturi soluta tenetur illo repellat consectetur laborum eveniet eaque, dicta, hic quisquam? Ex cupiditate ipsa nostrum autem sapiente.
                 </p>
-                <button className="bg-yellow-500 px-10 py-10 text-black mt-10 text-4xl">
-                  Download Now
-                </button>
+                <button className="bg-yellow-500 px-10 py-10 text-black mt-10 text-4xl">Download Now</button>
               </div>
             </div>
           </div>
